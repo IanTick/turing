@@ -7,7 +7,7 @@ use std::{
     str::FromStr,
 };
 
-/// A segment on the infinite [`Band`].
+/// A segment on the infinite [`Tape`].
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum Segment {
     Zero,
@@ -17,21 +17,21 @@ pub enum Segment {
 
 /// An infinite working buffer for the [`TuringMachine`].
 ///
-/// Advancing the band past the known segments will create
+/// Advancing the tape past the known segments will create
 /// empty segments dynamically.
 #[derive(Debug)]
-pub struct Band {
+pub struct Tape {
     inner: Vec<Segment>,
     position: usize,
 }
 
-impl Band {
-    /// Create a new band with a known part of the band and a
+impl Tape {
+    /// Create a new tape with a known part of the tape and a
     /// specific cursor position.
     ///
     /// # Panics
     ///
-    /// This method will panic if the position is outside of the band segment.
+    /// This method will panic if the position is outside of the tape segment.
     #[must_use]
     pub fn new(inner: Vec<Segment>, position: usize) -> Self {
         assert!(position < inner.len());
@@ -68,7 +68,7 @@ impl Band {
     }
 }
 
-impl FromStr for Band {
+impl FromStr for Tape {
     type Err = InvalidProgram;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -100,7 +100,7 @@ impl FromStr for Band {
     }
 }
 
-impl fmt::Display for Band {
+impl fmt::Display for Tape {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for segment in &self.inner {
             match segment {
@@ -129,7 +129,7 @@ pub struct State(usize);
 /// A transition in a [`Program`].
 ///
 /// If the transition matches the [`TuringMachine`]'s current
-/// state, it will write to the band and move the cursor.
+/// state, it will write to the tape and move the cursor.
 #[derive(Debug)]
 struct Transition {
     from: State,
@@ -341,27 +341,27 @@ pub enum ExecutionError {
 /// The actual turing machine that can execute [`Program`]s.
 #[derive(Debug)]
 pub struct TuringMachine {
-    band: Band,
+    tape: Tape,
 }
 
 impl TuringMachine {
-    /// Create a new [`TuringMachine`] from a [`Band`].
+    /// Create a new [`TuringMachine`] from a [`Tape`].
     #[must_use]
-    pub fn from_band(band: Band) -> Self {
-        Self { band }
+    pub fn from_tape(tape: Tape) -> Self {
+        Self { tape }
     }
 
-    /// Returns a reference to the internal [`Band`] used by the machine.
+    /// Returns a reference to the internal [`Tape`] used by the machine.
     #[must_use]
-    pub fn band(&self) -> &Band {
-        &self.band
+    pub fn tape(&self) -> &Tape {
+        &self.tape
     }
 
-    /// Returns a mutable reference to the internal [`Band`] used by the
+    /// Returns a mutable reference to the internal [`Tape`] used by the
     /// machine.
     #[must_use]
-    pub fn band_mut(&mut self) -> &mut Band {
-        &mut self.band
+    pub fn tape_mut(&mut self) -> &mut Tape {
+        &mut self.tape
     }
 
     /// Run a [`Program`] with this turing machine.
@@ -375,17 +375,17 @@ impl TuringMachine {
 
         // Find the next transition
         loop {
-            let current = self.band.current();
+            let current = self.tape.current();
             let transition = program
                 .transitions
                 .get(&(state, *current))
                 .ok_or(ExecutionError::UndefinedBehavior(state, *current))?;
 
-            self.band.put(transition.write);
+            self.tape.put(transition.write);
 
             match transition.action {
-                Move::Left => self.band.left(),
-                Move::Right => self.band.right(),
+                Move::Left => self.tape.left(),
+                Move::Right => self.tape.right(),
                 Move::Nothing => {}
             }
 
@@ -407,25 +407,25 @@ impl TuringMachine {
 #[test]
 fn test_next_integer() {
     let program = Program::from_str(include_str!("../examples/next_integer.tng")).unwrap();
-    let band = Band::from_str("_111_").unwrap();
-    let mut machine = TuringMachine::from_band(band);
+    let tape = Tape::from_str("_111_").unwrap();
+    let mut machine = TuringMachine::from_tape(tape);
     machine.execute(&program).unwrap();
-    assert_eq!(machine.band.inner, Band::from_str("1000_").unwrap().inner,);
+    assert_eq!(machine.tape.inner, Tape::from_str("1000_").unwrap().inner,);
 }
 
 #[test]
 fn test_append() {
     let program = Program::from_str(include_str!("../examples/append.tng")).unwrap();
-    let band = Band::from_str("_111_").unwrap();
-    let mut machine = TuringMachine::from_band(band);
+    let tape = Tape::from_str("_111_").unwrap();
+    let mut machine = TuringMachine::from_tape(tape);
     machine.execute(&program).unwrap();
-    assert_eq!(machine.band.inner, Band::from_str("_11101").unwrap().inner,);
+    assert_eq!(machine.tape.inner, Tape::from_str("_11101").unwrap().inner,);
 }
 
 #[test]
 fn test_palindrome() {
     let program = Program::from_str(include_str!("../examples/palindrome.tng")).unwrap();
-    let band = Band::from_str("_110000011_").unwrap();
-    let mut machine = TuringMachine::from_band(band);
+    let tape = Tape::from_str("_110000011_").unwrap();
+    let mut machine = TuringMachine::from_tape(tape);
     assert!(machine.execute(&program).is_ok());
 }

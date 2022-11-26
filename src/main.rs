@@ -1,6 +1,6 @@
 use std::{env::args, fs::read_to_string, process::exit, str::FromStr, time::Instant};
 
-use turing::{Band, Program, TuringMachine};
+use turing::{Tape, Program, TuringMachine};
 
 fn main() {
     let mut args = args();
@@ -11,13 +11,13 @@ fn main() {
         eprintln!("Expected a program path.");
         exit(1);
     });
-    let band = args.next().unwrap_or_else(|| {
-        eprintln!("Expected a band buffer.");
+    let tape = args.next().unwrap_or_else(|| {
+        eprintln!("Expected a tape buffer.");
         exit(1);
     });
 
-    let band = Band::from_str(&band).unwrap_or_else(|_| {
-        eprintln!("Band buffer is invalid.");
+    let tape = Tape::from_str(&tape).unwrap_or_else(|_| {
+        eprintln!("Tape buffer is invalid.");
         exit(1);
     });
 
@@ -31,18 +31,18 @@ fn main() {
         exit(1);
     });
 
-    let mut machine = TuringMachine::from_band(band);
+    let mut machine = TuringMachine::from_tape(tape);
 
     let start = Instant::now();
     let result = machine.execute(&program);
     let taken = start.elapsed();
 
-    let band = machine.band();
+    let tape = machine.tape();
 
     match result {
         Ok(s) => println!(
-            "Program finished successfully in {taken:?}. Final band: {band}. Final state: {s:?}"
+            "Program finished successfully in {taken:?}. Final tape: {tape}. Final state: {s:?}"
         ),
-        Err(e) => println!("Program failed to run in {taken:?}. Final band: {band}. Error: {e:?}"),
+        Err(e) => println!("Program failed to run in {taken:?}. Final tape: {tape}. Error: {e:?}"),
     }
 }
