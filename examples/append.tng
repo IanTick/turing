@@ -1,0 +1,10 @@
+# Program to append a zero and a one to the end of any number of ones followed by a blank
+
+# Start state
++0
+# End state
+-2
+# Program format: from,to,condition,write,action
+0,0,1,1,r
+0,1,_,0,r
+1,2,_,1,n

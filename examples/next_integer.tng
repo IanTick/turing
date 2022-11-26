@@ -1,0 +1,16 @@
+# This program adds 1 to a binary number.
+# Input format: Binary number with empty spaces at the sides
+# Initial state
++0
+# End state
+-3
+# Program format: from,to,condition,write,action
+0,0,0,0,r
+0,0,1,1,r
+0,1,_,_,l
+1,2,0,1,l
+1,1,1,0,l
+1,3,_,1,n
+2,2,0,0,l
+2,2,1,1,l
+2,3,_,_,r
