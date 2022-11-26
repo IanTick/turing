@@ -34,7 +34,7 @@ fn main() {
     let mut machine = TuringMachine::from_tape(tape);
 
     let start = Instant::now();
-    let result = machine.execute(&program);
+    let result = machine.run(program);
     let taken = start.elapsed();
 
     let tape = machine.tape();

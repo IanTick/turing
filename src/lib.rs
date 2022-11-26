@@ -117,7 +117,7 @@ impl fmt::Display for Tape {
 }
 
 /// An movement action in a program.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Move {
     Left,
     Right,
@@ -132,7 +132,7 @@ pub struct State(usize);
 ///
 /// If the transition matches the [`TuringMachine`]'s current
 /// state, it will write to the tape and move the cursor.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Transition {
     from: State,
     to: State,
@@ -232,9 +232,8 @@ impl Program {
     }
 
     fn get_transitions(&self, index: &(State, Segment)) -> Vec<usize> {
-        let u = Vec::new();
-        let x = self.transitions;
-        for (e, (i, t)) in x.iter().enumerate() {
+        let mut u = Vec::new();
+        for (e, (i, t)) in self.transitions.iter().enumerate() {
             if *i == *index {
                 u.push(e)
             }
@@ -304,7 +303,7 @@ impl FromStr for Program {
     type Err = InvalidProgram;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut transitions = HashMap::new();
+        let mut transitions = Vec::new();
         let mut initial_state = None;
         let mut final_states = HashSet::with_capacity(1);
         let mut error_states = HashSet::new();
@@ -328,7 +327,7 @@ impl FromStr for Program {
                 }
                 _ => {
                     let transition = Transition::from_str(line)?;
-                    transitions.insert((transition.from, transition.condition), transition);
+                    transitions.push(((transition.from, transition.condition), transition));
                 }
             }
         }
@@ -391,35 +390,35 @@ impl TuringMachine {
         let mut handles: Vec<JoinHandle<_>> = Vec::new();
 
         // Find the next transition
-        loop {
-            let current = self.tape.current();
-            let transitions = program.get_transitions(&(state, *current));
-            if transitions.len() == 0 {
-                return Err(());
+
+        let current = self.tape.current();
+        let transitions = program.get_transitions(&(init_state, *current));
+        if transitions.len() == 0 {
+            return Err(());
+        }
+
+        for num in transitions {
+            let transition = program.transitions[num].1.clone();
+
+            let mut new_machine = self.clone();
+            new_machine.tape.put(transition.write);
+
+            match transition.action {
+                Move::Left => new_machine.tape.left(),
+                Move::Right => new_machine.tape.right(),
+                Move::Nothing => {}
             }
 
-            for num in transitions {
-                let transition = program.transitions.get(num)?.1;
+            if program.final_states.contains(&transition.to) {
+                return Ok((new_machine.clone(), transition.to));
+            }
 
-                let mut new_machine = self.clone();
-                new_machine.tape.put(transition.write);
-
-                match transition.action {
-                    Move::Left => new_machine.tape.left(),
-                    Move::Right => new_machine.tape.right(),
-                    Move::Nothing => {}
-                }
-
-                if program.final_states.contains(&transition.to) {
-                    return Ok((new_machine.clone(), transition.to));
-                }
-
-                if !program.error_states.contains(&transition.to) {
-                    let p = program.clone();
-                    handles.push(thread::spawn(move || new_machine.execute(p, transition.to)));
-                }
+            if !program.error_states.contains(&transition.to) {
+                let p = program.clone();
+                handles.push(thread::spawn(move || new_machine.execute(p, transition.to)));
             }
         }
+
         let mut z = handles
             .into_iter()
             .map(|j| j.join().unwrap())
@@ -434,17 +433,19 @@ impl TuringMachine {
         Err(())
     }
 
-    pub fn run(&mut self, program: Program)-> Result<(Self, State), ()>{
-        self.execute(Arc::new(program), program.initial_state)
+    pub fn run(&mut self, program: Program) -> Result<(Self, State), ()> {
+        let p = Arc::new(program);
+        let state = p.initial_state;
+        self.execute(p, state)
     }
 }
 #[test]
 fn test_next_integer() {
-    let program = Arc::new(Program::from_str(include_str!("../examples/next_integer.tng")).unwrap());
+    let program = Program::from_str(include_str!("../examples/next_integer.tng")).unwrap();
     let tape = Tape::from_str("_111_").unwrap();
     let mut machine = TuringMachine::from_tape(tape);
-    machine.run(program).unwrap();
-    assert_eq!(machine.tape.inner, Tape::from_str("1000_").unwrap().inner,);
+    let result = machine.run(program).unwrap();
+    assert_eq!(result.0.tape.inner, Tape::from_str("1000_").unwrap().inner);
 }
 
 #[test]
@@ -452,8 +453,8 @@ fn test_append() {
     let program = Program::from_str(include_str!("../examples/append.tng")).unwrap();
     let tape = Tape::from_str("_111_").unwrap();
     let mut machine = TuringMachine::from_tape(tape);
-    machine.run(&program).unwrap();
-    assert_eq!(machine.tape.inner, Tape::from_str("_11101").unwrap().inner,);
+    let result = machine.run(program).unwrap();
+    assert_eq!(result.0.tape.inner, Tape::from_str("_11101").unwrap().inner);
 }
 
 #[test]
@@ -461,5 +462,5 @@ fn test_palindrome() {
     let program = Program::from_str(include_str!("../examples/palindrome.tng")).unwrap();
     let tape = Tape::from_str("_110000011_").unwrap();
     let mut machine = TuringMachine::from_tape(tape);
-    assert!(machine.run(&program).is_ok());
+    assert!(machine.run(program).is_ok());
 }
